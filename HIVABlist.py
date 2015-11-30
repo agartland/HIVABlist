@@ -2,12 +2,17 @@ import pandas as pd
 import numpy as np
 import os.path as op
 
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import palettable
+
+from custom_legends import colorLegend
 from HLAPredCache import hlaPredCache
 
 """TODO:
     (1) These paths could be updated so that they are relative to the package."""
 
-__all__ = ['loadEpitopes', 'loadPredictions']
+__all__ = ['loadEpitopes', 'loadPredictions', 'plotEpitopeCDF']
 
 def loadEpitopes(dataPath='data/'):
     """Load epitope lists and existing predictions."""
@@ -51,6 +56,7 @@ def loadEpitopes(dataPath='data/'):
         df['HLA'] = df['HLA'].map(_fixAllele)
         df = df.dropna(subset=['HLA'], axis=0)
         df = df.drop_duplicates()
+        df['ba_key'] = [(h,p) for h,p in zip(df.HLA, df.Epitope)]
         return df
 
     def _addRows(df):
@@ -118,3 +124,24 @@ def loadPredictions(adf, bdf, predFile='data/predictions.csv'):
     adf['log_IC50'] = [ba[(row['HLA'], row['Epitope'])] for i,row in adf.iterrows()]
     bdf['log_IC50'] = [ba[(row['HLA'], row['Epitope'])] for i,row in bdf.iterrows()]
     return adf, bdf, ba
+
+def plotEpitopeCDF(df, ba):
+    plt.clf()
+    ic50Ticks = [20, 50, 200, 500, 1000, 2000, 5000, 10000, 20000]
+    ECDF = sm.distributions.empirical_distribution.ECDF
+    colors = palettable.colorbrewer.qualitative.Set1_3.mpl_colors
+    for x,locus in enumerate('ABC'):
+        obsInd = df.HLA.str.slice(stop=1) == locus
+        ecdf = ECDF(df['log_IC50'].loc[obsInd])
+        plt.step(ecdf.x, ecdf.y, '-', color=colors[x], lw=3)
+
+        ref = [v for k,v in ba.items() if k[0][0]==locus and not k in df.ba_key]
+        ecdf = ECDF(ref)
+        plt.step(ecdf.x, ecdf.y, '--', color=colors[x], alpha=1)
+
+    plt.ylim((0,1))
+    colorLegend(colors=colors[:3], labels=['HLA-A', 'HLA-B', 'HLA-C'])
+    plt.xlim((0,15))
+    plt.xticks(np.log(ic50Ticks), ic50Ticks)
+    plt.xlabel('Predicted HLA binding $IC_{50}$ (nM)')
+    plt.ylabel('Fraction of epitopes')
