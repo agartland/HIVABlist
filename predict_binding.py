@@ -2,7 +2,7 @@ import pandas as pd
 import argparse
 
 import HLAPredCache
-from HIVABlist import loadEpitopes
+from .HIVABlist import loadEpitopes
 
 def generatePredictionsFile(method='netmhcpan', outfile='data/predictions.csv'):
     adf, bdf = loadEpitopes()

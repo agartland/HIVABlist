@@ -1,1 +1,1 @@
-from HIVABlist import loadEpitopes, loadPredictions, plotEpitopeCDF
+from .HIVABlist import loadEpitopes, loadPredictions, plotEpitopeCDF, isLANLEpitope
