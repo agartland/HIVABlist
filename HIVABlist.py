@@ -202,6 +202,8 @@ def _HLAissimilarIC50(h1, h2):
 
 
 def isLANLEpitope(h, peptide, lanlDf=None, minOverlap=8, maxMM=4, bindingThresh=6.2, deltaBinding=1, twoDigitMatching=True):
+    if lanlDf is None:
+        lanlDf = loadEpitopes[1]
     dist = lanlDf.Epitope.map(partial(_optimalOverlap, pep2=peptide, minOverlap=minOverlap))
     tmpDf = lanlDf.loc[dist <= maxMM]
     hlaMatch = tmpDf.HLA.map(partial(_HLAissimilar, h2=h))
