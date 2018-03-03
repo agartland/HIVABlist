@@ -190,21 +190,38 @@ def _optimalOverlap(pep1, pep2, minOverlap):
     return mn
 
 def _HLAissimilar(h1, h2):
-    locus1, allele1 = h1.split('*')
-    locus2, allele2 = h2.split('*')
-    if locus1 == locus2 and allele1[:2] == allele2[:2]:
-        return True
-    else:
+    try:
+        locus1, allele1 = h1.split('*')
+        locus2, allele2 = h2.split('*')
+        if locus1 == locus2 and allele1[:2] == allele2[:2]:
+            return True
+        else:
+            return False
+    except AttributeError:
         return False
 
 def _HLAissimilarIC50(h1, h2):
     pass
 
-
-def isLANLEpitope(h, peptide, lanlDf=None, minOverlap=8, maxMM=4, bindingThresh=6.2, deltaBinding=1, twoDigitMatching=True):
+def isLANLEpitope(h, peptide, HXB2start=None, lanlDf=None, minOverlap=8, maxMM=4, bindingThresh=6.2, deltaBinding=1, twoDigitMatching=True):
     if lanlDf is None:
-        lanlDf = loadEpitopes[1]
-    dist = lanlDf.Epitope.map(partial(_optimalOverlap, pep2=peptide, minOverlap=minOverlap))
-    tmpDf = lanlDf.loc[dist <= maxMM]
-    hlaMatch = tmpDf.HLA.map(partial(_HLAissimilar, h2=h))
-    return tmpDf.loc[hlaMatch]
+        lanlDf = loadEpitopes()[1]
+    if not HXB2start is None:
+        tmpDf = lanlDf.loc[np.abs(lanlDf['HXB2 start'] - HXB2start) < 15]
+    else:
+        tmpDf = lanlDf
+
+    dist = tmpDf.Epitope.map(partial(_optimalOverlap, pep2=peptide, minOverlap=minOverlap))
+    tmpDf = tmpDf.loc[dist <= maxMM]
+    if tmpDf.shape[0] > 0:
+        tmpDf.loc[:, 'Dist'] = dist.loc[dist <= maxMM]
+        hlaMatch = tmpDf.HLA.map(partial(_HLAissimilar, h2=h))
+        tmpHLADf = tmpDf.loc[hlaMatch]
+        if tmpHLADf.shape[0] > 0:
+            """Do not require an HLA match but return blank if not matched"""
+            tmpHLADf.loc[:, 'Matched HLA'] = h
+            tmpDf = tmpHLADf.sort_values(by='Dist', ascending=True)
+        else:
+            tmpDf.loc[:, 'Matched HLA'] = ''
+            tmpDf = tmpDf.sort_values(by='Dist', ascending=True)
+    return tmpDf
