@@ -4,6 +4,7 @@ import os.path as op
 import operator
 from functools import partial
 import matplotlib.pyplot as plt
+from Bio import pairwise2
 
 try:
     from HLAPredCache import hlaPredCache
@@ -204,12 +205,45 @@ def _HLAissimilarIC50(h1, h2):
     pass
 
 def isLANLEpitope(h, peptide, HXB2start=None, lanlDf=None, minOverlap=8, maxMM=4, bindingThresh=6.2, deltaBinding=1, twoDigitMatching=True):
+    """Determine if the pepide and HLA allele h are in the LANL T cell epitope database.
+    Does not require an HLA match; returns blank if not matched.
+    
+    Parameters
+    ----------
+    h : str
+        HLA allele, e.g. "A*02" or "A*02:01"
+    peptide : str
+        Amino acid sequence, e.g. KMQKEYALL
+    HXB2start : int
+        Will constrain the search to LANL epitopes with a start position
+        within 15 AA
+    lanlDf : pd.DataFrame
+        Provide adf or bdf from loadEpitopes(), to search the 
+        A-list (default) or B-list
+    minOverlap : int
+        Requires a minimum overlap of AA
+    maxMM : int
+        Maximum number of mismatches tolerated to be consdered a match.
+    bindingThresh : float
+        Log-IC50 binding affinity required to be an epitope.
+        (not implemented)
+    deltaBinding : float
+        Change in log-IC50 affinitity tolerated to be considered a match.
+    twoDigitMatching : bool
+        If True (default), match on only the first two HLA digits
+        e.g. "A*02" """
+
     if lanlDf is None:
         lanlDf = loadEpitopes()[1]
     if not HXB2start is None:
         tmpDf = lanlDf.loc[np.abs(lanlDf['HXB2 start'] - HXB2start) < 15]
     else:
         tmpDf = lanlDf
+
+    def simFunc(seq):
+        return pairwise2.align.globalxs(seq, peptide, -2, -2, penalize_end_gaps=False)[0][2]
+    # sim = tmpDf.Epitope.map(simFunc)
+    # tmpDf = tmpDf.loc[tmpDf.sim >= minOverlap]
 
     dist = tmpDf.Epitope.map(partial(_optimalOverlap, pep2=peptide, minOverlap=minOverlap))
     tmpDf = tmpDf.loc[dist <= maxMM]
